@@ -16,9 +16,15 @@ if [[ -f /etc/mkinitcpio.conf.d/thunderbolt_module.conf ]]; then
 fi
 
 # ALARM's linux-aarch64 installs /boot/Image rather than /boot/vmlinuz-<name>.
-# Give the preset the filename it expects.
-if [[ -e /boot/Image && ! -e /boot/vmlinuz-linux-aarch64 ]]; then
-  cp -a /boot/Image /boot/vmlinuz-linux-aarch64
+# Give the preset the filename it expects. Everything below depends on this, so
+# say so plainly rather than letting mkinitcpio fail confusingly later.
+if [[ ! -e /boot/vmlinuz-linux-aarch64 ]]; then
+  if [[ -e /boot/Image ]]; then
+    cp -a /boot/Image /boot/vmlinuz-linux-aarch64
+  else
+    echo "customize_airootfs: no kernel image at /boot/Image or /boot/vmlinuz-linux-aarch64" >&2
+    exit 1
+  fi
 fi
 
 # Drop presets whose kernel image is absent: `mkinitcpio -P` aborts on them.
@@ -47,11 +53,20 @@ PRESET
 
 echo "customize_airootfs: building the live initramfs from archiso.conf"
 rm -f /boot/initramfs-linux*.img
-mkinitcpio -p linux-aarch64 || echo "customize_airootfs: WARNING mkinitcpio failed"
-if compgen -G "/boot/initramfs-*.img" >/dev/null; then
-  echo "customize_airootfs: initramfs present"
-else
-  echo "customize_airootfs: ERROR no initramfs produced"
+
+# mkinitcpio exits non-zero on this platform even when it produces a complete
+# image: archiso's memdisk hook wants the phram module and the memdiskfind
+# binary, and neither exists for aarch64 (memdiskfind ships in syslinux, which
+# is x86-only). Judge the result on the artefact rather than the exit status.
+mkinitcpio -p linux-aarch64 || \
+  echo "customize_airootfs: mkinitcpio reported errors; checking for the image"
+
+# The GRUB entries boot this file by name. If it is missing the ISO builds
+# cleanly and then fails to boot, so fail the build here instead.
+if [[ ! -s /boot/initramfs-linux-aarch64.img ]]; then
+  echo "customize_airootfs: no live initramfs was produced; the ISO would not boot" >&2
+  exit 1
 fi
+echo "customize_airootfs: initramfs present ($(stat -c %s /boot/initramfs-linux-aarch64.img) bytes)"
 
 exit 0
