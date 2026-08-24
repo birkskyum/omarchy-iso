@@ -70,14 +70,39 @@ pacman-key --add /builder/omarchy.gpg
 pacman-key --lsign-key 40DFB630FF42BCFFB047046CF0134EE680CAC571
 
 # omarchy-keyring is needed inside the offline mirror too.
-pacman --config /configs/pacman-online-${OMARCHY_MIRROR}.conf --noconfirm -Sy omarchy-keyring
+# The checked-in pacman configs describe an x86_64 build. Rather than edit them,
+# stage a filtered copy for aarch64 and use that; x86_64 keeps reading the
+# originals untouched.
+#
+#   [multilib]    32-bit x86 libraries. No ARM mirror carries it.
+#   [arch-mact2]  an Apple T2 repository, x86 by definition.
+#   core/extra    the explicit Server line points at Omarchy's mirror of Arch,
+#                 which is x86_64-only. Both sections already Include the
+#                 mirrorlist, so dropping the line is enough. Substituting
+#                 another URL would not work: Arch Linux ARM lays its tree out
+#                 as $arch/$repo rather than Arch's $repo/os/$arch.
+PACMAN_ONLINE_CONF="/configs/pacman-online-${OMARCHY_MIRROR}.conf"
+if [[ $ISO_ARCH == aarch64 ]]; then
+  PACMAN_ONLINE_CONF="/tmp/pacman-online-${OMARCHY_MIRROR}.conf"
+  awk '
+    /^\[multilib\]$/   { skip = 1; next }
+    /^\[arch-mact2\]$/ { skip = 1; next }
+    /^\[/               { skip = 0; section = $0 }
+    skip                 { next }
+    (section == "[core]" || section == "[extra]") && /^Server[[:space:]]*=/ { next }
+    { print }
+  ' "/configs/pacman-online-${OMARCHY_MIRROR}.conf" > "$PACMAN_ONLINE_CONF"
+  echo "aarch64: staged $PACMAN_ONLINE_CONF without [multilib]/[arch-mact2]"
+fi
+
+pacman --config $PACMAN_ONLINE_CONF --noconfirm -Sy omarchy-keyring
 pacman-key --populate omarchy
 
 # Append the [omarchy] repo to the container's /etc/pacman.conf so subsequent
 # tools (notably makepkg in build-omarchy-packages.sh) can resolve omarchy-
 # only build deps like limine-snapper-sync and limine-mkinitcpio-hook.
 if ! grep -q '^\[omarchy\]' /etc/pacman.conf; then
-  awk '/^\[omarchy\]/,/^$/' /configs/pacman-online-${OMARCHY_MIRROR}.conf >> /etc/pacman.conf
+  awk '/^\[omarchy\]/,/^$/' $PACMAN_ONLINE_CONF >> /etc/pacman.conf
 fi
 
 # Build locations
@@ -220,7 +245,7 @@ else
   bootstrap_cache_dir=/tmp/omarchy-pkg-bootstrap
   rm -rf "$bootstrap_cache_dir" /tmp/offlinedb-bootstrap /tmp/omarchy-pkglists
   mkdir -p "$bootstrap_cache_dir" /tmp/offlinedb-bootstrap
-  pacman --config /configs/pacman-online-${OMARCHY_MIRROR}.conf --noconfirm -Syw "$OMARCHY_RUNTIME_PACKAGE" --cachedir "$bootstrap_cache_dir" --dbpath /tmp/offlinedb-bootstrap >/dev/null
+  pacman --config $PACMAN_ONLINE_CONF --noconfirm -Syw "$OMARCHY_RUNTIME_PACKAGE" --cachedir "$bootstrap_cache_dir" --dbpath /tmp/offlinedb-bootstrap >/dev/null
   omarchy_pkg=$(find "$bootstrap_cache_dir" -maxdepth 1 -type f \( -name "$OMARCHY_RUNTIME_PACKAGE-*.pkg.tar.zst" -o -name "$OMARCHY_RUNTIME_PACKAGE-*.pkg.tar.xz" \) | sort | head -1)
   if [[ -z $omarchy_pkg ]]; then
     echo "ERROR: downloaded package for $OMARCHY_RUNTIME_PACKAGE not found in $bootstrap_cache_dir" >&2
@@ -348,7 +373,7 @@ fi
 
 mkdir -p /tmp/offlinedb
 download_offline_packages() {
-  pacman --config /configs/pacman-online-${OMARCHY_MIRROR}.conf --noconfirm -Syw \
+  pacman --config $PACMAN_ONLINE_CONF --noconfirm -Syw \
     "${all_packages[@]}" --cachedir "$offline_mirror_dir/" --dbpath /tmp/offlinedb --needed
 }
 
@@ -366,7 +391,7 @@ fi
 # newest version of every cached package name) removes packages that have left
 # the lists or dependency closure, such as an old Electron major version.
 if ! resolved_package_files="$(
-  pacman --config "/configs/pacman-online-${OMARCHY_MIRROR}.conf" --noconfirm \
+  pacman --config "$PACMAN_ONLINE_CONF" --noconfirm \
     --dbpath /tmp/offlinedb -S --print --print-format '%f' "${all_packages[@]}"
 )"; then
   echo "ERROR: could not resolve the package files required by the offline mirror" >&2
