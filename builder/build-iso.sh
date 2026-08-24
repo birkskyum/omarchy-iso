@@ -159,6 +159,40 @@ rm -rf "$build_cache_dir/airootfs/etc/xdg/reflector"
 
 # Bring in our archiso profile additions.
 cp -r /configs/* "$build_cache_dir/"
+
+# The GRUB configs name the kernel and initramfs they boot. That name follows the
+# live kernel package, so substitute it here rather than keeping a second copy of
+# each file. Both grub.cfg and loopback.cfg carry those names -- loopback.cfg is
+# what boots the ISO from a file on disk, and missing it leaves that path
+# requesting a kernel the ISO does not contain. On x86_64 ISO_KERNEL is linux-t2
+# and this is a no-op.
+for _grub_cfg in "$build_cache_dir"/grub/*.cfg; do
+  [[ -e $_grub_cfg ]] || continue
+  sed -i \
+    -e "s|vmlinuz-linux-t2|vmlinuz-${ISO_KERNEL}|g" \
+    -e "s|initramfs-linux-t2\\.img|initramfs-${ISO_KERNEL}.img|g" \
+    "$_grub_cfg"
+done
+
+# Live-ISO mkinitcpio overrides that only make sense on aarch64. They are kept
+# out of configs/airootfs/ so an x86_64 build never ships them, and staged into
+# the airootfs here instead. They must exist before pacstrap runs mkinitcpio's
+# pacman hook, which is why customize_airootfs.sh cannot handle those two.
+if [[ $ISO_ARCH == aarch64 ]]; then
+  install -Dm644 /configs/aarch64/zz-aarch64-live.conf \
+    "$build_cache_dir/airootfs/etc/mkinitcpio.conf.d/zz-aarch64-live.conf"
+  install -Dm644 /configs/aarch64/linux.preset \
+    "$build_cache_dir/airootfs/etc/mkinitcpio.d/linux.preset"
+  install -Dm755 /configs/aarch64/customize_airootfs.sh \
+    "$build_cache_dir/airootfs/root/customize_airootfs.sh"
+  # The T2 preset has no kernel image on this architecture, and pacstrap's
+  # mkinitcpio hook would fail on it before customize_airootfs.sh can run:
+  #   ERROR: Invalid option -k -- '/boot/vmlinuz-linux-t2' must be readable
+  rm -f "$build_cache_dir/airootfs/etc/mkinitcpio.d/linux-t2.preset"
+  echo "aarch64: staged live-ISO mkinitcpio overrides"
+fi
+# configs/aarch64/ is a staging directory, not part of the airootfs.
+rm -rf "$build_cache_dir/aarch64"
 mkdir -p "$build_cache_dir/airootfs/usr/share/omarchy-iso"
 echo "$OMARCHY_MIRROR" > "$build_cache_dir/airootfs/root/omarchy_mirror"
 echo "$OMARCHY_ISO_REF" > "$build_cache_dir/airootfs/root/omarchy_iso_ref"
