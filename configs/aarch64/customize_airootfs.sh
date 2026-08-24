@@ -1,5 +1,32 @@
 #!/usr/bin/env bash
 # Runs inside the live-ISO chroot after packages are installed.
+#
+# WHAT THIS IS FOR
+# ----------------
+# Arch Linux ARM's kernel packages name things differently from Arch's, and
+# archiso and GRUB both look for the Arch names. This reconciles the two.
+#
+# It is deliberately *not* responsible for generating the initramfs. On Arch
+# that happens by itself: the kernel package installs
+# usr/lib/modules/<ver>/{vmlinuz,pkgbase}, 90-mkinitcpio-install.hook triggers
+# on the former, and /usr/share/libalpm/scripts/mkinitcpio reads the latter to
+# learn the kernel's name. ALARM installs neither file, so the hook never fires
+# -- proposed upstream as archlinuxarm/PKGBUILDs#2215. With that applied the
+# hook does run, but two naming gaps remain and are what this script closes:
+#
+#   * ALARM's preset is PRESETS=('default') writing /boot/initramfs-linux.img,
+#     while the GRUB entries load initramfs-linux-aarch64.img.
+#   * Nothing creates /boot/vmlinuz-*, and mkarchiso copies the kernel with
+#     `install -- "${pacstrap_dir}/boot/vmlinuz-"*`, which would match nothing.
+#
+# It also sets archiso_config in the preset, which is how x86's linux-t2.preset
+# keeps an installed system's HOOKS out of the live initramfs.
+#
+# NOTE: mkarchiso prints a deprecation warning for customize_airootfs.sh. There
+# is currently no replacement hook that runs inside the chroot after packages
+# install, which is required here because the kernel image only exists then.
+# Shipping the preset in airootfs/ does not work either: the overlay is copied
+# before pacstrap, so linux-aarch64's own preset overwrites it.
 set -uo pipefail
 
 # Everything here addresses differences in Arch Linux ARM's kernel packaging.
@@ -15,9 +42,8 @@ if [[ -f /etc/mkinitcpio.conf.d/thunderbolt_module.conf ]]; then
     /etc/mkinitcpio.conf.d/thunderbolt_module.conf
 fi
 
-# ALARM's linux-aarch64 installs /boot/Image rather than /boot/vmlinuz-<name>.
-# Give the preset the filename it expects. Everything below depends on this, so
-# say so plainly rather than letting mkinitcpio fail confusingly later.
+# ALARM installs the kernel as /boot/Image. mkarchiso copies /boot/vmlinuz-*
+# into the ISO, so without this name the kernel never reaches the image.
 if [[ ! -e /boot/vmlinuz-linux-aarch64 ]]; then
   if [[ -e /boot/Image ]]; then
     cp -a /boot/Image /boot/vmlinuz-linux-aarch64
@@ -37,10 +63,12 @@ for preset in /etc/mkinitcpio.d/*.preset; do
   fi
 done
 
-# The equivalent of x86's linux-t2.preset: archiso_config makes mkinitcpio read
-# archiso.conf as its configuration, bypassing /etc/mkinitcpio.conf.d entirely.
-# That is what stops omarchy_hooks.conf -- which describes an *installed*
-# system -- from replacing the archiso hooks in the *live* initramfs.
+# Replace ALARM's preset, which writes /boot/initramfs-linux.img, with one that
+# writes the name the GRUB entries load. archiso_config additionally makes
+# mkinitcpio read archiso.conf as its configuration, bypassing
+# /etc/mkinitcpio.conf.d entirely -- the same trick x86's linux-t2.preset uses
+# to keep omarchy_hooks.conf, which describes an *installed* system, out of the
+# *live* initramfs.
 cat > /etc/mkinitcpio.d/linux-aarch64.preset <<'PRESET'
 # Live-ISO preset for Arch Linux ARM's linux-aarch64.
 PRESETS=('archiso')
