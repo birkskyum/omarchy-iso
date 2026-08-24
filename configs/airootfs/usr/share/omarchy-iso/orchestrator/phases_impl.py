@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import platform
 import re
 import shutil
 import subprocess
@@ -1160,6 +1161,10 @@ def run_system_finalizer(ctx: InstallContext) -> None:
 PROVISION_STATE_DIR = "var/lib/omarchy/provisioning"
 PROVISION_KEYFILE = "etc/omarchy/provisioning.key"
 NODE_PACKAGES_DIR = Path("/opt/packages")
+# Node names its builds x64 / arm64 rather than by uname, and the ISO bundles the
+# one matching the architecture it was built for.
+_NODE_ARCH = {"x86_64": "x64", "aarch64": "arm64"}.get(platform.machine(), "x64")
+NODE_TARBALL_GLOB = f"node-v*-linux-{_NODE_ARCH}.tar.gz"
 
 
 def stage_provisioning_state(ctx: InstallContext) -> None:
@@ -1200,7 +1205,7 @@ def stage_provisioning_state(ctx: InstallContext) -> None:
 
 
 def _stage_node_tarball(ctx: InstallContext, provisioning_dir) -> None:
-    tarballs = sorted(NODE_PACKAGES_DIR.glob("node-v*-linux-x64.tar.gz"))
+    tarballs = sorted(NODE_PACKAGES_DIR.glob(NODE_TARBALL_GLOB))
     if not tarballs:
         # Hard error on every install, not just deferred-provisioning installs: the stash is what lets a
         # later factory reset finalize the next owner offline, and an ISO
