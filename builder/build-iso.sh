@@ -361,7 +361,10 @@ fi
 declare -a all_packages
 mapfile -t all_packages < <(
   {
-    cat "$build_cache_dir/packages.$ISO_ARCH"
+    # mkarchiso allows comments and blank lines in packages.$arch, so strip them
+    # the same way the lists below are read. releng's own list carries none,
+    # which is why a bare cat worked until this profile shipped a commented one.
+    grep -hv '^#\|^$' "$build_cache_dir/packages.$ISO_ARCH"
     grep -hv '^#\|^$' "${base_pkg_lists[@]}"
     grep -hv '^#\|^$' "${ARCHINSTALL_PACKAGES:-/builder/archinstall.packages}"
     # Always include the selected Omarchy packages so the target install can
