@@ -60,9 +60,31 @@ if ! pacman --noconfirm -S --needed archiso; then
   # the default install target runs rst2man (python-docutils) for man pages,
   # which this build has no use for.
   cp -r /archiso /tmp/archiso-src
+
+  # archiso hardcodes a GRUB module list taken from an x86 bug report, and
+  # at_keyboard (PS/2), keylayouts, usb and the usbserial_* drivers are not
+  # built for arm64-efi, so grub-mkstandalone aborts on the first one it cannot
+  # find. Filter the list to what the target platform actually provides.
+  #
+  # This belongs upstream in archiso rather than here; carried against the
+  # vendored copy until it lands there, and applied with --forward so it becomes
+  # a no-op once the submodule is bumped past it.
+  patch -d /tmp/archiso-src -p1 --forward --batch \
+    </builder/patches/archiso-grubmodules.patch || true
   make -C /tmp/archiso-src PREFIX=/usr install-scripts install-profiles
 fi
 command -v mkarchiso
+
+# Whichever mkarchiso we ended up with, it must be able to build a GRUB image
+# for this platform. Fail here with a clear message rather than several minutes
+# later inside grub-mkstandalone.
+if [[ $ISO_ARCH == aarch64 ]] && ! grep -q _filter_grubmodules "$(command -v mkarchiso)"; then
+  echo "This mkarchiso hardcodes a GRUB module list that includes modules not" >&2
+  echo "built for arm64-efi (at_keyboard, keylayouts, usb, usbserial_*), so" >&2
+  echo "grub-mkstandalone would abort. Apply builder/patches/archiso-grubmodules.patch" >&2
+  echo "or use an archiso that already filters the list." >&2
+  exit 1
+fi
 
 # Pre-import the omarchy signing key (so pacman trusts our [omarchy] repo
 # during the build without keyserver lookups).

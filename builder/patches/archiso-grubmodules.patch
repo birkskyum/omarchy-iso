@@ -1,0 +1,33 @@
+# Filter archiso's hardcoded GRUB module list to what the target platform
+# provides. at_keyboard (PS/2), keylayouts, usb and the usbserial_* drivers
+# are not built for arm64-efi, so grub-mkstandalone aborts without this.
+#
+# Generated against the vendored archiso (v87). Belongs upstream in archiso;
+# carried here until it lands there. build-iso.sh applies it with --forward,
+# so it becomes a no-op once the submodule is bumped past the fix.
+--- a/archiso/mkarchiso
++++ b/archiso/mkarchiso
+@@ -691,6 +691,23 @@
+                  minicmd normal ntfs ntfscomp part_apple part_gpt part_msdos png read reboot regexp search \
+                  search_fs_file search_fs_uuid search_label serial sleep tpm udf usb usbserial_common usbserial_ftdi \
+                  usbserial_pl2303 usbserial_usbdebug video xfs zstd)
++    # Not every module in the list above is built for every platform: at_keyboard
++    # is PS/2 and the usbserial_* drivers are x86-oriented, so none of them exist
++    # for arm64-efi and grub-mkstandalone aborts on the first one it cannot find.
++    # Keep only what the target platform actually provides.
++    local _m _available=() _missing=()
++    for _m in "${grubmodules[@]}"; do
++        if [[ -e "/usr/lib/grub/${grub_target}/${_m}.mod" ]]; then
++            _available+=("$_m")
++        else
++            _missing+=("$_m")
++        fi
++    done
++    if (( ${#_missing[@]} )); then
++        _msg_info "Skipping GRUB module(s) not built for ${grub_target}: ${_missing[*]}"
++    fi
++    grubmodules=("${_available[@]}")
++
+     grub-mkstandalone -O "$grub_target" \
+         --modules="${grubmodules[*]}" \
+         --locales="en@quot" \
