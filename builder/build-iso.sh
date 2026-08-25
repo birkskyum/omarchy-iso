@@ -40,6 +40,13 @@ export OMARCHY_RUNTIME_PACKAGE OMARCHY_SETTINGS_PACKAGE OMARCHY_NVIM_PACKAGE
 
 # Packages installed into the Arch container used to build the ISO.
 pacman-key --init
+# Arch Linux ARM signs its repositories with its own keyring, which the
+# archlinuxarm container ships but whose trust does not survive a fresh
+# pacman-key --init. The official Arch container has no such package, so
+# x86_64 skips this.
+if pacman -Q archlinuxarm-keyring &>/dev/null; then
+  pacman-key --populate archlinuxarm
+fi
 pacman --noconfirm -Sy archlinux-keyring
 # Full upgrade, not just -Sy: docker never re-pulls :latest once it's cached,
 # so this container can be months behind the mirror it installs from. A plain
@@ -60,7 +67,6 @@ if ! pacman --noconfirm -S --needed archiso; then
   # the default install target runs rst2man (python-docutils) for man pages,
   # which this build has no use for.
   cp -r /archiso /tmp/archiso-src
-
   # archiso hardcodes a GRUB module list taken from an x86 bug report, and
   # at_keyboard (PS/2), keylayouts, usb and the usbserial_* drivers are not
   # built for arm64-efi, so grub-mkstandalone aborts on the first one it cannot
@@ -115,6 +121,21 @@ if [[ $ISO_ARCH == aarch64 ]]; then
     { print }
   ' "/configs/pacman-online-${OMARCHY_MIRROR}.conf" > "$PACMAN_ONLINE_CONF"
   echo "aarch64: staged $PACMAN_ONLINE_CONF without [multilib]/[arch-mact2]"
+fi
+
+# A locally built [omarchy] repository (bin/omarchy-iso-make --local-repo)
+# replaces the published one for every step below: the keyring install, the
+# container's own pacman.conf, and the offline-mirror download and its
+# resolution. The checked-in config is a read-only mount, so stage a copy
+# before editing it if the block above has not already done so.
+if [[ -d /omarchy-repo ]]; then
+  if [[ $PACMAN_ONLINE_CONF == /configs/* ]]; then
+    cp "$PACMAN_ONLINE_CONF" "/tmp/pacman-online-${OMARCHY_MIRROR}.conf"
+    PACMAN_ONLINE_CONF="/tmp/pacman-online-${OMARCHY_MIRROR}.conf"
+  fi
+  sed -i '/^\[omarchy\]$/,/^$/ s|^Server = .*|Server = file:///omarchy-repo|' "$PACMAN_ONLINE_CONF"
+  echo "local repo: [omarchy] served from file:///omarchy-repo"
+  ls /omarchy-repo/omarchy.db >/dev/null
 fi
 
 pacman --config $PACMAN_ONLINE_CONF --noconfirm -Sy omarchy-keyring
