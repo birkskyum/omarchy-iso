@@ -489,8 +489,19 @@ printf '%s\n' "${required_package_files[@]}" |
 # Rebuild the offline repo db from scratch so size/checksum/depends entries
 # always reflect only the package files selected for this build.
 rm -f "$offline_mirror_dir"/offline.db* "$offline_mirror_dir"/offline.files*
-repo-add "$offline_mirror_dir/offline.db.tar.gz" \
-  "$offline_mirror_dir/"*.pkg.tar.zst "$offline_mirror_dir/"*.pkg.tar.xz
+# Enumerate rather than glob inline: a mirror holding only one of the two
+# formats leaves the other pattern unmatched, and bash would hand it to
+# repo-add literally, which fails the build under set -e.
+offline_repo_packages=()
+for package_file in "$offline_mirror_dir/"*.pkg.tar.zst "$offline_mirror_dir/"*.pkg.tar.xz; do
+  [[ -e $package_file ]] || continue
+  offline_repo_packages+=("$package_file")
+done
+if (( ${#offline_repo_packages[@]} == 0 )); then
+  echo "ERROR: no package files found in $offline_mirror_dir" >&2
+  exit 1
+fi
+repo-add "$offline_mirror_dir/offline.db.tar.gz" "${offline_repo_packages[@]}"
 
 # mkarchiso expects the mirror at /var/cache/omarchy/mirror/offline inside the
 # container (the airootfs path); symlink rather than duplicate.
