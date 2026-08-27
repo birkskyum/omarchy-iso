@@ -29,7 +29,7 @@ jobs:
       # substitutes Arch Linux ARM's quickshell package for it.
       packages: >-
         omarchy-keyring ttf-jetbrains-mono-nerd-basic limine-mkinitcpio-hook limine-snapper-sync
-        qcom-firmware-extract omarchy-settings omarchy omarchy-nvim
+        linux-aarch64-pkgbase-shim qcom-firmware-extract omarchy-settings omarchy omarchy-nvim
         aether cliamp herdr localsend-bin mise-bin omacalc omacut omawrite omarchy-chromium-bin
         ttfx yay tobi-try ttf-ia-writer ufw-docker xdg-terminal-exec yaru-icon-theme
         tzupdate tensaku hyprland-preview-share-picker
