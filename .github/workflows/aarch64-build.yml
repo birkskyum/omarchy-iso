@@ -7,14 +7,12 @@ name: aarch64 ISO Build
 # changes the x86_64 workflow: separate file, separate runner label.
 
 on:
-  push:
-    branches: [snapdragon]
   workflow_dispatch:
     inputs:
       pkgs_ref:
         description: "omarchy-pkgs branch, tag or SHA to build the [omarchy] repo from"
         type: string
-        default: snapdragon
+        default: master
       iso_make_args:
         description: "Extra bin/omarchy-iso-make arguments (e.g. --edge)"
         type: string
@@ -22,10 +20,19 @@ on:
 
 jobs:
   packages:
-    uses: JimmayVV/omarchy-pkgs/.github/workflows/build-aarch64.yml@snapdragon
+    uses: omacom-io/omarchy-pkgs/.github/workflows/build-aarch64.yml@master
     with:
-      pkgs_repository: JimmayVV/omarchy-pkgs
-      pkgs_ref: ${{ inputs.pkgs_ref || 'snapdragon' }}
+      pkgs_repository: omacom-io/omarchy-pkgs
+      pkgs_ref: ${{ inputs.pkgs_ref || 'master' }}
+      # Everything the ISO installs from [omarchy] that has an aarch64 build.
+      # quickshell-git is deliberately absent: the aarch64 package selection
+      # substitutes Arch Linux ARM's quickshell package for it.
+      packages: >-
+        omarchy-keyring ttf-jetbrains-mono-nerd-basic limine-mkinitcpio-hook limine-snapper-sync
+        qcom-firmware-extract omarchy-settings omarchy omarchy-nvim
+        aether cliamp herdr localsend-bin mise-bin omacalc omacut omawrite omarchy-chromium-bin
+        ttfx yay tobi-try ttf-ia-writer ufw-docker xdg-terminal-exec yaru-icon-theme
+        tzupdate tensaku hyprland-preview-share-picker
 
   build-iso:
     needs: packages
