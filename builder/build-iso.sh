@@ -77,6 +77,11 @@ if ! pacman --noconfirm -S --needed archiso; then
   # a no-op once the submodule is bumped past it.
   patch -d /tmp/archiso-src -p1 --forward --batch \
     </builder/patches/archiso-grubmodules.patch || true
+  # archiso copies the kernel and initramfs out of /boot after the profile's
+  # customization runs, but not the DTB-carrying UKI created there. Teach the
+  # vendored copy to carry that image into the ISO as well.
+  patch -d /tmp/archiso-src -p1 --forward --batch \
+    </builder/patches/archiso-copy-boot-efi.patch || true
   make -C /tmp/archiso-src PREFIX=/usr install-scripts install-profiles
 fi
 command -v mkarchiso
@@ -89,6 +94,11 @@ if [[ $ISO_ARCH == aarch64 ]] && ! grep -q _filter_grubmodules "$(command -v mka
   echo "built for arm64-efi (at_keyboard, keylayouts, usb, usbserial_*), so" >&2
   echo "grub-mkstandalone would abort. Apply builder/patches/archiso-grubmodules.patch" >&2
   echo "or use an archiso that already filters the list." >&2
+  exit 1
+fi
+if [[ $ISO_ARCH == aarch64 ]] && ! grep -q 'Unified kernel images built into /boot' "$(command -v mkarchiso)"; then
+  echo "This mkarchiso does not copy the DTB-carrying live UKI out of /boot." >&2
+  echo "Apply builder/patches/archiso-copy-boot-efi.patch before installing it." >&2
   exit 1
 fi
 
