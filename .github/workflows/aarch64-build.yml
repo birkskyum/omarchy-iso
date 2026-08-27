@@ -90,6 +90,10 @@ jobs:
             sha256sum "$iso"
             xorriso -indev "$iso" -ls /EFI/BOOT/ 2>/dev/null
             xorriso -indev "$iso" -lsl /arch/boot/aarch64/ 2>/dev/null
+            # This is the default Snapdragon boot target. Its absence leaves
+            # only the plain-kernel fallback, which has no board device tree.
+            xorriso -indev "$iso" -ls /arch/boot/aarch64/omarchy-live.efi 2>/dev/null \
+              || { echo "ISO is missing the DTB-carrying live UKI" >&2; exit 1; }
           done
           df -h
 
