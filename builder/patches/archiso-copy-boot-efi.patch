@@ -12,22 +12,13 @@ Retire when: archiso ships UKIs from /boot itself (no upstream MR as of
 
 --- a/archiso/mkarchiso
 +++ b/archiso/mkarchiso
-@@ -430,11 +430,17 @@
- 
- # Copy kernel and initramfs to ISO 9660
- _make_boot_on_iso9660() {
+@@ -433 +433 @@ _make_boot_on_iso9660() {
 -    local ucode_image
 +    local ucode_image _uki
-     _msg_info "Preparing kernel and initramfs for the ISO 9660 file system..."
-     install -d -m 0755 -- "${isofs_dir}/${install_dir}/boot/${arch}"
-     install -m 0644 -- "${pacstrap_dir}/boot/initramfs-"*".img" "${isofs_dir}/${install_dir}/boot/${arch}/"
-     install -m 0644 -- "${pacstrap_dir}/boot/vmlinuz-"* "${isofs_dir}/${install_dir}/boot/${arch}/"
+@@ -437,0 +438,6 @@ _make_boot_on_iso9660() {
 +    # Unified kernel images built into /boot by the profile travel with the
 +    # kernel they wrap, where a GRUB entry can chainload them.
 +    for _uki in "${pacstrap_dir}/boot/"*.efi; do
 +        [[ -e "${_uki}" ]] || continue
 +        install -m 0644 -- "${_uki}" "${isofs_dir}/${install_dir}/boot/${arch}/"
 +    done
- 
-     if (( need_external_ucodes )); then
-         for ucode_image in "${ucodes[@]}"; do
