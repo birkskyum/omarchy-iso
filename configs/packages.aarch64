@@ -10,7 +10,6 @@
 # mkarchiso reads packages.$arch from the profile directory, so this overrides
 # the releng copy seeded earlier in the build.
 alsa-utils
-amd-ucode
 arch-install-scripts
 archinstall
 b43-fwcutter
