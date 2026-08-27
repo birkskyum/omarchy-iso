@@ -8,13 +8,13 @@ name: aarch64 ISO Build
 
 on:
   push:
-    branches: [snapdragon]
+    branches: [integration/encrypted-yoga]
   workflow_dispatch:
     inputs:
       pkgs_ref:
         description: "omarchy-pkgs branch, tag or SHA to build the [omarchy] repo from"
         type: string
-        default: snapdragon
+        default: integration/encrypted-yoga
       iso_make_args:
         description: "Extra bin/omarchy-iso-make arguments (e.g. --edge)"
         type: string
@@ -22,10 +22,13 @@ on:
 
 jobs:
   packages:
-    uses: JimmayVV/omarchy-pkgs/.github/workflows/build-aarch64.yml@snapdragon
+    # Integration-only wiring. The upstreamable workflow keeps these as the
+    # originating Snapdragon branches; this fork build includes the Yoga and
+    # firmware-selection follow-ups that the encrypted-install test requires.
+    uses: birkskyum/omarchy-pkgs/.github/workflows/build-aarch64.yml@integration/encrypted-yoga
     with:
-      pkgs_repository: JimmayVV/omarchy-pkgs
-      pkgs_ref: ${{ inputs.pkgs_ref || 'snapdragon' }}
+      pkgs_repository: birkskyum/omarchy-pkgs
+      pkgs_ref: ${{ inputs.pkgs_ref || 'integration/encrypted-yoga' }}
 
   build-iso:
     needs: packages
