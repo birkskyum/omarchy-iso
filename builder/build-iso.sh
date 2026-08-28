@@ -519,6 +519,28 @@ fi
 printf '%s\n' "${required_package_files[@]}" |
   bash /builder/prune-offline-mirror.sh "$offline_mirror_dir"
 
+# Some packages are consumed only by late post-install hooks, not by pacstrap,
+# so resolving the target's initial package transaction cannot prove they made
+# it onto the ISO. Omarchy installs and populates Arch Linux ARM's keyring late
+# in post-install/pacman.sh. Fail the aarch64 build here instead of letting a
+# real installation fail after partitioning and pacstrap have completed.
+require_offline_package() {
+  local required_name="$1" package_file package_name
+
+  for package_file in "$offline_mirror_dir/"*.pkg.tar.zst "$offline_mirror_dir/"*.pkg.tar.xz; do
+    [[ -f $package_file ]] || continue
+    read -r package_name _ < <(pacman -Qp "$package_file" 2>/dev/null) || continue
+    [[ $package_name == "$required_name" ]] && return 0
+  done
+
+  echo "ERROR: offline mirror is missing post-install package: $required_name" >&2
+  return 1
+}
+
+if [[ $ISO_ARCH == aarch64 ]]; then
+  require_offline_package archlinuxarm-keyring
+fi
+
 # Rebuild the offline repo db from scratch so size/checksum/depends entries
 # always reflect only the package files selected for this build.
 rm -f "$offline_mirror_dir"/offline.db* "$offline_mirror_dir"/offline.files*
