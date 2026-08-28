@@ -11,6 +11,11 @@
 # the releng copy seeded earlier in the build.
 alsa-utils
 arch-install-scripts
+# Omarchy's aarch64 post-install step installs and populates the ALARM keyring.
+# Keep the package on the ISO so that late step remains fully offline. Without
+# it, installation reaches "Configuring system" and then fails with
+# "target not found: archlinuxarm-keyring" after the disk has been written.
+archlinuxarm-keyring
 archinstall
 b43-fwcutter
 base
