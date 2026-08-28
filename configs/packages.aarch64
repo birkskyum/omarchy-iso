@@ -1,20 +1,7 @@
-# Package list for the aarch64 live environment.
-#
-# Derived from archiso's releng packages.x86_64, with entries that do not exist
-# for aarch64 removed: x86 microcode and boot tooling (intel-ucode, syslinux,
-# refind, memtest86+, edk2-shell), x86-only guest tooling (hyperv, open-vm-tools,
-# virtualbox-guest-utils-nox), broadcom-wl (a prebuilt module for the stock
-# kernel), and packages Arch Linux ARM does not carry (reflector,
-# ghostty-terminfo). The kernel itself comes from ISO_KERNEL in build-iso.sh.
-#
-# mkarchiso reads packages.$arch from the profile directory, so this overrides
-# the releng copy seeded earlier in the build.
+# aarch64 live environment based on archiso's releng package list.
 alsa-utils
 arch-install-scripts
-# Omarchy's aarch64 post-install step installs and populates the ALARM keyring.
-# Keep the package on the ISO so that late step remains fully offline. Without
-# it, installation reaches "Configuring system" and then fails with
-# "target not found: archlinuxarm-keyring" after the disk has been written.
+# Required by the target's offline post-install setup.
 archlinuxarm-keyring
 archinstall
 b43-fwcutter
@@ -64,28 +51,13 @@ libusb-compat
 linux-atm
 linux-firmware
 linux-firmware-marvell
-# Arch Linux ARM splits the Qualcomm blobs out of linux-firmware: GPU microcode
-# (gen70500_sqe), Wi-Fi/BT board data. Without it the live session has a
-# display but no GPU (JimmayVV/omarchy-iso#10).
+# Qualcomm GPU, Wi-Fi and Bluetooth firmware.
 linux-firmware-qcom
-# Arch Linux ARM's kernel packages ship no /usr/lib/modules/*/pkgbase, and
-# limine-mkinitcpio-hook skips a kernel without one, so an installed system
-# would get no UKI and no Limine entry. The shim (omarchy-pkgs) writes pkgbase
-# and vmlinuz from a pacman hook and is a no-op once the kernel ships them. It
-# is listed here because this file also feeds the offline mirror the installer
-# pacstraps the target from; the orchestrator installs it into the target on
-# aarch64 (_early_bootstrap_packages). Retire with Arch Linux ARM PR #2215.
+# Kernel metadata required by mkinitcpio and Limine.
 linux-aarch64-pkgbase-shim
-# Vulkan for the Adreno GPU. omarchy's vulkan.sh installs it on Qualcomm SoCs,
-# so it must be in the offline mirror; this file is the aarch64-only way in
-# (the omarchy repo's package lists are downloaded by the x86_64 build too).
+# Vulkan for Adreno GPUs.
 vulkan-freedreno
-# Copies the vendor-signed Qualcomm firmware (GPU zap shader, DSP images) a
-# Snapdragon laptop's device tree names from its Windows partition. The
-# configurator and orchestrator stage the files in the live session before
-# the disk is written (a full-disk install destroys the source), and
-# omarchy's install/hardware/qualcomm/firmware.sh installs them in the
-# target. omarchy-pkgs, arch=any; also feeds the offline mirror from here.
+# Extract vendor-signed Qualcomm firmware from Windows.
 qcom-firmware-extract
 livecd-sounds
 lsscsi

@@ -31,13 +31,7 @@ airootfs_image_type="squashfs"
 # cold on every boot: kernel, plymouth, systemd, python, archinstall, gum. The
 # whole ISO grows well under a percent for it, and dropping the x86 BCJ filter
 # also removes one of the blockers listed in plans/aarch64-support.md.
-# Arch Linux ARM builds its kernel without CONFIG_SQUASHFS_ZSTD (ZLIB, LZ4 and
-# XZ only), so a zstd airootfs builds correctly and then cannot be mounted by
-# the very kernel on the ISO:
-#     mount: /run/archiso/airootfs: fsconfig() failed:
-#            Filesystem uses "zstd" compression. This is not supported.
-# Arch's kernel does enable it, so zstd remains the default there and the
-# measured rationale above is unaffected.
+# linux-aarch64 cannot mount a zstd-compressed SquashFS image.
 if [[ $arch == aarch64 ]]; then
   _airootfs_comp=('-comp' 'xz' '-Xbcj' 'arm')
 else

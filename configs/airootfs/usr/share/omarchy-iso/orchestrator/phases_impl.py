@@ -39,10 +39,7 @@ from .context import InstallContext
 from .keyboard import configure_keyboard
 from .ui import error, info
 
-# Limine ships BOOT{X64,IA32,AA64,RISCV64,LOONGARCH64}.EFI and the Arch package
-# installs *all* of them, so hardcoding the x64 name does not fail on ARM -- it
-# silently installs an x86-64 binary the firmware cannot execute. Derive the
-# name instead, matching limine-common-functions' limine_efi_arch().
+# Select Limine EFI filenames for the target architecture.
 _LIMINE_EFI_ARCH = {
     "x86_64": "X64",
     "i686": "IA32",
@@ -156,11 +153,7 @@ EARLY_LUAROCKS_PACKAGES = [
 ]
 
 
-# Arch Linux ARM's kernel packages ship no /usr/lib/modules/*/pkgbase, and
-# limine-mkinitcpio-hook skips a kernel without one, so the target would get
-# no UKI and no Limine entry. The shim (omarchy-pkgs) writes pkgbase and
-# vmlinuz from a pacman hook and is a no-op once the kernel ships them.
-# Retire with Arch Linux ARM PR #2215.
+# Supply kernel metadata required by mkinitcpio and Limine on Arch Linux ARM.
 EARLY_BOOTSTRAP_AARCH64_PACKAGES = [
     "linux-aarch64-pkgbase-shim",
 ]
@@ -203,11 +196,7 @@ def _early_packages() -> list[str]:
 # imports it, so no patching happens here.
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Snapdragon laptops need vendor-signed firmware that exists only on the
-# machine's Windows partition, which a full-disk install destroys. The live
-# session saves the files here and _prepare_target_setup copies them into the
-# target, where omarchy's install/hardware/qualcomm/firmware.sh installs them.
-# qcom-firmware-extract ships only on the aarch64 ISO, so x86_64 never enters.
+# Stage vendor-signed Qualcomm firmware before the Windows partition is removed.
 LIVE_FIRMWARE_STAGE = Path("/run/omarchy/firmware")
 TARGET_FIRMWARE_STAGE = Path("var/lib/omarchy/firmware-stage")
 
@@ -217,8 +206,7 @@ def _stage_qualcomm_firmware() -> None:
     if not tool:
         return
     info("› saving Qualcomm firmware from Windows before the disk is written")
-    # Idempotent (the configurator usually ran it already) and never fatal:
-    # without the files the system still installs and boots.
+    # Firmware extraction is idempotent and optional.
     subprocess.run([tool, "--stage", str(LIVE_FIRMWARE_STAGE)], check=False)
 
 
@@ -1218,8 +1206,7 @@ def run_system_finalizer(ctx: InstallContext) -> None:
 PROVISION_STATE_DIR = "var/lib/omarchy/provisioning"
 PROVISION_KEYFILE = "etc/omarchy/provisioning.key"
 NODE_PACKAGES_DIR = Path("/opt/packages")
-# Node ships x64/arm64 builds under different filenames; the ISO bundles the
-# one matching the target architecture.
+# Select the bundled Node archive for the target architecture.
 _NODE_ARCH = {"x86_64": "x64", "aarch64": "arm64"}.get(platform.machine(), "x64")
 NODE_TARBALL_GLOB = f"node-v*-linux-{_NODE_ARCH}.tar.gz"
 

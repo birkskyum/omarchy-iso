@@ -1,10 +1,6 @@
 name: aarch64 ISO Build
 
-# The aarch64 twin of nightly-build.yml. It builds the [omarchy] aarch64
-# package repository first (omarchy-pkgs' reusable workflow, same run), then
-# the ISO natively on a GitHub-hosted arm64 runner with that repo mounted in
-# place of pkgs.omarchy.org, which serves no aarch64 tree. Nothing here
-# changes the x86_64 workflow: separate file, separate runner label.
+# Build the aarch64 package repository and ISO on a native ARM runner.
 
 on:
   workflow_dispatch:
@@ -24,9 +20,7 @@ jobs:
     with:
       pkgs_repository: omacom-io/omarchy-pkgs
       pkgs_ref: ${{ inputs.pkgs_ref || 'master' }}
-      # Everything the ISO installs from [omarchy] that has an aarch64 build.
-      # quickshell-git is deliberately absent: the aarch64 package selection
-      # substitutes Arch Linux ARM's quickshell package for it.
+      # Packages installed from the local aarch64 Omarchy repository.
       packages: >-
         omarchy-keyring ttf-jetbrains-mono-nerd-basic limine-mkinitcpio-hook limine-snapper-sync
         linux-aarch64-pkgbase-shim qcom-firmware-extract omarchy-settings omarchy omarchy-nvim
@@ -56,8 +50,7 @@ jobs:
           docker version --format '{{.Server.Version}}'
           docker info --format '{{.Driver}} {{.DockerRootDir}}'
 
-      # The hosted runner's root disk is small; the x86 nightly frees it the
-      # same way. Keep going if a step of it has nothing to remove on arm64.
+      # The hosted runner's root disk is too small for both build stages.
       - name: Free Disk Space
         uses: jlumbroso/free-disk-space@v1.3.1
         continue-on-error: true
@@ -94,8 +87,7 @@ jobs:
             sha256sum "$iso"
             xorriso -indev "$iso" -ls /EFI/BOOT/ 2>/dev/null
             xorriso -indev "$iso" -lsl /arch/boot/aarch64/ 2>/dev/null
-            # This is the default Snapdragon boot target. Its absence leaves
-            # only the plain-kernel fallback, which has no board device tree.
+            # The default Snapdragon boot target must carry its device trees.
             xorriso -indev "$iso" -ls /arch/boot/aarch64/omarchy-live.efi 2>/dev/null \
               || { echo "ISO is missing the DTB-carrying live UKI" >&2; exit 1; }
           done

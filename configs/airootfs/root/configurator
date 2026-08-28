@@ -9,9 +9,7 @@ OMARCHY_SETTINGS_PACKAGE="${OMARCHY_SETTINGS_PACKAGE:-omarchy-settings}"
 
 LOGO_PATH="$OMARCHY_PATH/logo.txt"
 
-# Limine installs BOOT<ARCH>.EFI as limine_<arch>.efi. The Arch package ships
-# every architecture's binary, so the x64 name resolves on ARM too and the
-# install silently registers an unbootable x86-64 loader. Derive it instead.
+# Select the Limine EFI binary for the target architecture.
 case "$(uname -m)" in
   x86_64)      limine_efi_binary="limine_x64.efi"         ;;
   i?86)        limine_efi_binary="limine_ia32.efi"        ;;
@@ -21,11 +19,7 @@ case "$(uname -m)" in
   *)           limine_efi_binary="limine_x64.efi"         ;;
 esac
 
-# archinstall prepends these to the target's mirrorlist. They are Arch x86_64
-# mirrors laid out as $repo/os/$arch; Arch Linux ARM uses $arch/$repo on
-# different hosts, so on aarch64 every one of them 404s ahead of the mirror the
-# distribution's own pacman-mirrorlist package installed. Leave that list alone
-# there.
+# Arch Linux ARM uses its own mirror list and repository layout.
 case "$(uname -m)" in
   aarch64) mirror_custom_servers='[]' ;;
   *) mirror_custom_servers='[
@@ -413,13 +407,8 @@ detect_bitlocker() {
   return 1
 }
 
-# Snapdragon laptops need firmware signed by the laptop vendor (GPU zap
-# shader, DSP images) that exists only on the machine's Windows partition,
-# and a full-disk install destroys that partition. Save the files now, before
-# anything is written. qcom-firmware-extract ships only on the aarch64 ISO
-# (configs/packages.aarch64), so x86_64 never reaches this. Never aborts the
-# install: without the files the system boots, just without GPU acceleration,
-# audio or battery reporting until `sudo qcom-firmware-extract` is run.
+# Save vendor-signed Qualcomm firmware before a full-disk install removes Windows.
+# Missing firmware does not abort installation.
 stage_qualcomm_firmware() {
   command -v qcom-firmware-extract >/dev/null 2>&1 || return 0
   [[ -d /sys/firmware/devicetree/base ]] || return 0
@@ -472,9 +461,7 @@ to_gb() {
 
 # T2 Macs need their own kernel for keyboard/wifi drivers.
 detect_kernel() {
-  # Arch Linux ARM ships no bare `linux` package -- its kernel is
-  # `linux-aarch64`, and that is also the pkgbase every bootloader hook and
-  # validate_boot() looks for. T2 detection is x86-only by construction.
+  # Arch Linux ARM names its generic kernel linux-aarch64.
   case "$(uname -m)" in
     aarch64) echo "linux-aarch64"; return ;;
   esac

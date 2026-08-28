@@ -156,9 +156,7 @@ if [[ -n $LOCAL_OMARCHY_PATH ]]; then
   )
 fi
 
-# A pre-built [omarchy] repository stands in for pkgs.omarchy.org, which
-# serves no aarch64 tree. build-iso.sh rewrites the repo's Server line when
-# this mount exists.
+# Mount a locally built Omarchy package repository when requested.
 if [[ -n $LOCAL_REPO_PATH ]]; then
   DOCKER_ARGS+=(-v "$LOCAL_REPO_PATH:/omarchy-repo:ro")
 fi
@@ -187,9 +185,7 @@ if ! docker version &>/dev/null; then
   DOCKER=(sudo docker)
 fi
 
-# The build targets the host architecture (build-iso.sh keys everything off
-# uname -m). archlinux/archlinux:latest only publishes an amd64 manifest, so
-# an aarch64 host builds from an Arch Linux ARM image instead.
+# Select a build image for the host architecture.
 case "$(uname -m)" in
   aarch64) BUILD_IMAGE=menci/archlinuxarm:base-devel ;;
   *) BUILD_IMAGE=archlinux/archlinux:latest ;;
